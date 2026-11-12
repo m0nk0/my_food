@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // <--- ДОБАВЛЕНО
 import '../config/app_config.dart';
 
 class GigaFoodService {
@@ -74,18 +75,32 @@ class GigaFoodService {
       final token = await _getAccessToken();
       final fileId = await _uploadImage(imageFile, token);
 
+      // Получаем данные профиля для персонализации
+      final prefs = await SharedPreferences.getInstance();
+      final hasAllergies = prefs.getBool('userHasAllergies') ?? false;
+      final allergies = prefs.getString('userAllergies') ?? '';
+      final hasDiseases = prefs.getBool('userHasDiseases') ?? false;
+      final diseases = prefs.getString('userDiseases') ?? '';
+      final goal = prefs.getString('userGoal') ?? 'Поддерживать форму';
+
+      // Формируем персональные ограничения для промпта
+      String healthContext = '';
+      if (hasAllergies && allergies.isNotEmpty) {
+        healthContext += 'ВАЖНО: У пользователя аллергия на: $allergies. Если в блюде есть эти компоненты, обязательно укажи это в поле "warning". ';
+      }
+      if (hasDiseases && diseases.isNotEmpty) {
+        healthContext += 'ВАЖНО: У пользователя есть заболевания: $diseases. Учти это при рекомендациях. ';
+      }
+
       final requestBody = {
         'model': 'GigaChat-2-Pro', // Убедись, что тут Pro или Max
         'messages': [
           {
             'role': 'system',
             'content': '''
-Ты — дотошный нутрициолог и эксперт по еде. Твоя задача — максимально точно проанализировать фото.
-ОБРАТИ ВНИМАНИЕ НА:
-1. Цвет продукта (например, зеленое яблоко, красное яблоко, спелое/неспелое).
-2. Сорт, если он очевиден (например, Гренни Смит, Фуджи, Ромашка).
-3. Способ приготовления (варка, жарка, на пару).
-4. Наличие соусов, масла или добавок.
+Ты — умный нутрициолог и эксперт по еде. Проанализируй фото.
+$healthContext
+Цель пользователя: $goal.
 
 Верни ответ СТРОГО в формате JSON без markdown-разметки и лишнего текста.
 Формат JSON:
@@ -96,9 +111,10 @@ class GigaFoodService {
   "protein": 2.0,
   "fat": 0.5,
   "carbs": 25.0,
-  "description": "Краткая справка (2-3 предложения). Укажи особенности этого вида (кислый/сладкий, содержание сахара).",
+  "description": "Краткая справка (2-3 предложения).",
   "benefits": "Основная польза для организма (1 предложение).",
-  "warnings": "Аллергены, противопоказания или предостережения (1 предложение). Если нет, напиши 'Противопоказаний нет'."
+  "warnings": "Аллергены, противопоказания (1 предложение). Если нет, напиши 'Противопоказаний нет'.",
+  "warning": "КРИТИЧЕСКОЕ ПРЕДУПРЕЖДЕНИЕ. Заполняй ТОЛЬКО если в блюде есть аллергены или оно опасно для заболеваний пользователя. Например: '⚠️ Внимание! В этом блюде есть орехи, а у вас аллергия'. Если всё безопасно, верни пустую строку."
 }
 '''
           },

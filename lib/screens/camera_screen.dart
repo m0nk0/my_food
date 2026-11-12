@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:flutter/material.dart'; // <--- ЭТОТ ИМПОРТ БЫЛ ПОТЕРЯН
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/food_analysis_provider.dart';
 import '../providers/diary_provider.dart';
@@ -31,6 +31,9 @@ class _CameraScreenState extends State<CameraScreen> {
       final description = data['description'] ?? 'Нет описания';
       final benefits = data['benefits'] ?? 'Нет данных';
       final warnings = data['warnings'] ?? 'Нет данных';
+      
+      // КРИТИЧЕСКОЕ ПРЕДУПРЕЖДЕНИЕ (из-за аллергий или болезней)
+      final criticalWarning = data['warning'] ?? '';
 
       return Scaffold(
         appBar: AppBar(title: const Text('Анализ блюда')),
@@ -73,6 +76,32 @@ class _CameraScreenState extends State<CameraScreen> {
                       ),
                       
                       const Divider(height: 32),
+
+                      // КРАСНОЕ ПРЕДУПРЕЖДЕНИЕ (Аллергии/Болезни)
+                      if (criticalWarning.isNotEmpty) ...[
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.red.shade200),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(Icons.warning_amber_rounded, color: Colors.red),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  criticalWarning,
+                                  style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
 
                       // Кнопка "Узнать больше"
                       SizedBox(
