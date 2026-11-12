@@ -1,0 +1,131 @@
+import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import '../config/app_config.dart';
+
+class GigaFoodService {
+  static const String _authUrl = 'https://ngw.devices.sberbank.ru:9443/api/v2/oauth';
+  static const String _apiUrl = 'https://gigachat.devices.sberbank.ru/api/v1/chat/completions';
+  static const String _filesUrl = 'https://gigachat.devices.sberbank.ru/api/v1/files';
+
+  String? _accessToken;
+
+  final HttpClient _httpClient = HttpClient()
+    ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+
+  Future<String> _getAccessToken() async {
+    if (_accessToken != null) return _accessToken!;
+    final request = await _httpClient.postUrl(Uri.parse(_authUrl));
+    request.headers.set('Content-Type', 'application/x-www-form-urlencoded');
+    request.headers.set('Accept', 'application/json');
+    request.headers.set('RqUID', '123e4567-e89b-12d3-a456-426614174000');
+    request.headers.set('Authorization', 'Basic ${AppConfig.gigaApiKey}');
+    request.add(utf8.encode('scope=GIGACHAT_API_PERS'));
+
+    final response = await request.close();
+    final responseBody = await response.transform(utf8.decoder).join();
+    
+    if (response.statusCode == 200) {
+      _accessToken = jsonDecode(responseBody)['access_token'];
+      return _accessToken!;
+    }
+    throw Exception('Auth error: ${response.statusCode} - $responseBody');
+  }
+
+  Future<String> _uploadImage(File imageFile, String token) async {
+    final compressedBytes = await FlutterImageCompress.compressWithFile(
+      imageFile.absolute.path,
+      minWidth: 800,
+      minHeight: 800,
+      quality: 80,
+      format: CompressFormat.jpeg,
+    );
+
+    if (compressedBytes == null) throw Exception('Не удалось сжать изображение');
+
+    final boundary = '----GigaChatBoundary${DateTime.now().millisecondsSinceEpoch}';
+    final request = await _httpClient.postUrl(Uri.parse(_filesUrl));
+    request.headers.set('Authorization', 'Bearer $token');
+    request.headers.set('Content-Type', 'multipart/form-data; boundary=$boundary');
+
+    final body = <int>[];
+    body.addAll(utf8.encode('--$boundary\r\n'));
+    body.addAll(utf8.encode('Content-Disposition: form-data; name="purpose"\r\n\r\n'));
+    body.addAll(utf8.encode('general\r\n'));
+    body.addAll(utf8.encode('--$boundary\r\n'));
+    body.addAll(utf8.encode('Content-Disposition: form-data; name="file"; filename="food.jpg"\r\n'));
+    body.addAll(utf8.encode('Content-Type: image/jpeg\r\n\r\n'));
+    body.addAll(compressedBytes);
+    body.addAll(utf8.encode('\r\n--$boundary--\r\n'));
+
+    request.add(body);
+    final response = await request.close();
+    final responseBody = await response.transform(utf8.decoder).join();
+    
+    if (response.statusCode == 200) {
+      return jsonDecode(responseBody)['id'];
+    }
+    throw Exception('Upload error: ${response.statusCode} - $responseBody');
+  }
+
+  Future<Map<String, dynamic>> analyzeFood(File imageFile) async {
+    try {
+      final token = await _getAccessToken();
+      final fileId = await _uploadImage(imageFile, token);
+
+      final requestBody = {
+        'model': 'GigaChat-2-Pro', // Убедись, что тут Pro или Max
+        'messages': [
+          {
+            'role': 'system',
+            'content': '''
+Ты — дотошный нутрициолог и эксперт по еде. Твоя задача — максимально точно проанализировать фото.
+ОБРАТИ ВНИМАНИЕ НА:
+1. Цвет продукта (например, зеленое яблоко, красное яблоко, спелое/неспелое).
+2. Сорт, если он очевиден (например, Гренни Смит, Фуджи, Ромашка).
+3. Способ приготовления (варка, жарка, на пару).
+4. Наличие соусов, масла или добавок.
+
+Верни ответ СТРОГО в формате JSON без markdown-разметки и лишнего текста.
+Формат JSON:
+{
+  "dish_name": "Максимально точное название (например, 'Зеленое яблоко Гренни Смит', а не просто 'Яблоко')",
+  "weight_g": 150,
+  "calories": 100,
+  "protein": 2.0,
+  "fat": 0.5,
+  "carbs": 25.0,
+  "description": "Краткая справка (2-3 предложения). Укажи особенности этого вида (кислый/сладкий, содержание сахара).",
+  "benefits": "Основная польза для организма (1 предложение).",
+  "warnings": "Аллергены, противопоказания или предостережения (1 предложение). Если нет, напиши 'Противопоказаний нет'."
+}
+'''
+          },
+          {
+            'role': 'user',
+            'content': 'Что это за еда? Дай справку.',
+            'attachments': [fileId]
+          }
+        ]
+      };
+
+      final request = await _httpClient.postUrl(Uri.parse(_apiUrl));
+      request.headers.set('Authorization', 'Bearer $token');
+      request.headers.set('Content-Type', 'application/json');
+      request.add(utf8.encode(jsonEncode(requestBody)));
+
+      final response = await request.close();
+      final responseBody = await response.transform(utf8.decoder).join();
+      
+      if (response.statusCode == 200) {
+        final content = jsonDecode(responseBody)['choices'][0]['message']['content'] as String;
+        final cleanContent = content.replaceAll('```json', '').replaceAll('```', '').trim();
+        return jsonDecode(cleanContent);
+      }
+      throw Exception('API error: ${response.statusCode} - $responseBody');
+    } catch (e) {
+      throw Exception('Ошибка при анализе фото: $e');
+    }
+  }
+}
