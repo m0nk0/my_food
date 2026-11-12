@@ -8,6 +8,7 @@ import '../services/calculator_service.dart';
 import '../data/database.dart';
 import 'camera_screen.dart';
 import 'onboarding_screen.dart';
+import 'analytics_screen.dart'; // <--- ДОБАВЛЕН ИМПОРТ
 
 class DiaryScreen extends StatefulWidget {
   const DiaryScreen({super.key});
@@ -21,7 +22,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
   double _proteinGoal = 100.0;
   double _fatGoal = 70.0;
   double _carbsGoal = 250.0;
-  double _waterGoal = 2000.0; // <--- ДОБАВЛЕНО
+  double _waterGoal = 2000.0;
 
   @override
   void initState() {
@@ -34,7 +35,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
     final protein = await CalculatorService.getDailyProtein();
     final fat = await CalculatorService.getDailyFat();
     final carbs = await CalculatorService.getDailyCarbs();
-    final water = await CalculatorService.getWaterGoal(); // <--- ДОБАВЛЕНО
+    final water = await CalculatorService.getWaterGoal();
     
     if (mounted) {
       setState(() {
@@ -42,7 +43,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
         _proteinGoal = protein;
         _fatGoal = fat;
         _carbsGoal = carbs;
-        _waterGoal = water; // <--- ДОБАВЛЕНО
+        _waterGoal = water;
       });
     }
   }
@@ -213,7 +214,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
                                       style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blue),
                                     ),
                                     Text(
-                                      '${diary.totalWaterMl.toStringAsFixed(0)} / ${_waterGoal.toStringAsFixed(0)} мл', // <--- ИСПОЛЬЗУЕМ _waterGoal
+                                      '${diary.totalWaterMl.toStringAsFixed(0)} / ${_waterGoal.toStringAsFixed(0)} мл',
                                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.blue),
                                     ),
                                   ],
@@ -222,7 +223,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
                                 // Капли
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                  children: List.generate((_waterGoal / 250).ceil(), (index) { // <--- ДИНАМИЧЕСКОЕ КОЛИЧЕСТВО
+                                  children: List.generate((_waterGoal / 250).ceil(), (index) {
                                     final isFilled = (diary.totalWaterMl / 250) > index;
                                     return Flexible(
                                       child: GestureDetector(
@@ -237,7 +238,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
                                           padding: const EdgeInsets.symmetric(horizontal: 2),
                                           child: Icon(
                                             Icons.water_drop,
-                                            size: 24, // Чуть уменьшили, чтобы больше капель влезало
+                                            size: 24,
                                             color: isFilled ? Colors.blue : Colors.blue.shade100,
                                           ),
                                         ),
@@ -444,9 +445,15 @@ class _DiaryScreenState extends State<DiaryScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
+              // Кнопка Аналитики
               IconButton(
                 icon: const Icon(Icons.book, color: Colors.green, size: 32),
-                onPressed: () {},
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const AnalyticsScreen()),
+                  );
+                },
               ),
               GestureDetector(
                 onTap: () {
