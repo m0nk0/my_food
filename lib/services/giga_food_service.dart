@@ -297,7 +297,6 @@ $healthContext
     }
   }
 
-  // НОВЫЙ МЕТОД: Анализ меню
   Future<List<Map<String, dynamic>>> analyzeMenu(File imageFile) async {
     try {
       final token = await _getAccessToken();
@@ -372,6 +371,130 @@ $healthContext
       throw Exception('API error: ${response.statusCode} - $responseBody');
     } catch (e) {
       throw Exception('Ошибка при чтении меню: $e');
+    }
+  }
+
+  // Анализ продуктов в холодильнике
+  Future<List<String>> analyzeFridge(File imageFile) async {
+    try {
+      final token = await _getAccessToken();
+      final fileId = await _uploadImage(imageFile, token);
+
+      final requestBody = {
+        'model': 'GigaChat-2-Max',
+        'messages': [
+          {
+            'role': 'system',
+            'content': '''
+Ты — эксперт по продуктам. На фото холодильник, полка или стол с продуктами.
+Твоя задача — перечислить ТОЛЬКО те продукты, которые ты ЧЕТКО видишь на фото.
+
+Верни ответ СТРОГО в формате JSON-массива строк без markdown-разметки.
+Пример: ["яйца", "молоко", "помидоры", "сыр", "курица"]
+
+ПРАВИЛА:
+1. Пиши названия продуктов на русском языке.
+2. Не пиши бренды, пиши общие названия (например, "йогурт", а не "Activia").
+3. Если продукт в упаковке и его не видно, но упаковка узнаваема (например, молоко), пиши его.
+4. КАТЕГОРИЧЕСКИ НЕ ДОБАВЛЯЙ продукты, которых нет на фото. Если ты не видишь майонез, кетчуп или консервы — НЕ пиши их. Перечисляй только то, что реально присутствует в кадре.
+'''
+          },
+          {
+            'role': 'user',
+            'content': 'Что здесь есть?',
+            'attachments': [fileId]
+          }
+        ]
+      };
+
+      final request = await _httpClient.postUrl(Uri.parse(_apiUrl));
+      request.headers.set('Authorization', 'Bearer $token');
+      request.headers.set('Content-Type', 'application/json');
+      request.add(utf8.encode(jsonEncode(requestBody)));
+
+      final response = await request.close();
+      final responseBody = await response.transform(utf8.decoder).join();
+      
+      if (response.statusCode == 200) {
+        final content = jsonDecode(responseBody)['choices'][0]['message']['content'] as String;
+        String cleanContent = content.replaceAll('```json', '').replaceAll('```', '').trim();
+        
+        try {
+          final List<dynamic> parsed = jsonDecode(cleanContent);
+          return parsed.map((e) => e.toString()).toList();
+        } catch (e) {
+          return [];
+        }
+      }
+      throw Exception('API error: ${response.statusCode} - $responseBody');
+    } catch (e) {
+      throw Exception('Ошибка при анализе продуктов: $e');
+    }
+  }
+
+  // Генерация рецептов из списка продуктов
+  Future<String> generateRecipesFromProducts({
+    required List<String> products,
+    required double remainingCalories,
+    required String allergies,
+    required String goal,
+  }) async {
+    try {
+      final token = await _getAccessToken();
+
+      String healthContext = '';
+      if (allergies.isNotEmpty) {
+        healthContext = 'ВАЖНО: У пользователя аллергия на: $allergies. Исключи эти продукты. ';
+      }
+
+      final requestBody = {
+        'model': 'GigaChat-2-Max',
+        'messages': [
+          {
+            'role': 'system',
+            'content': '''
+Ты — практичный шеф-повар. У пользователя есть следующие продукты: ${products.join(', ')}.
+У него осталось $remainingCalories ккал на этот прием пищи.
+Цель: $goal.
+$healthContext
+
+ВАЖНЫЕ ПРАВИЛА:
+1. Предлагай ТОЛЬКО простые рецепты из этих продуктов. Можешь добавить базовые специи (соль, перец, масло), если они подразумеваются.
+2. Время готовки — не более 20 минут.
+3. Не пиши вступления типа "Вот ваши рецепты". Сразу переходи к делу.
+
+Придумай 3 рецепта. 
+Для каждого напиши:
+1. Название (жирным).
+2. Ингредиенты (с граммовками).
+3. Пошаговый рецепт (3-4 шага).
+4. Примерное КБЖУ на порцию.
+
+Ответ верни в виде красивого текста (Markdown).
+'''
+          },
+          {
+            'role': 'user',
+            'content': 'Придумай рецепты из этих продуктов.'
+          }
+        ]
+      };
+
+      final request = await _httpClient.postUrl(Uri.parse(_apiUrl));
+      request.headers.set('Authorization', 'Bearer $token');
+      request.headers.set('Content-Type', 'application/json');
+      request.add(utf8.encode(jsonEncode(requestBody)));
+
+      final response = await request.close();
+      final responseBody = await response.transform(utf8.decoder).join();
+      
+      if (response.statusCode == 200) {
+        final content = jsonDecode(responseBody)['choices'][0]['message']['content'] as String;
+        return content.trim();
+      }
+      throw Exception('API error: ${response.statusCode} - $responseBody');
+    } catch (e) {
+      throw Exception('Ошибка при генерации рецептов из продуктов: $e');
     }
   }
 }

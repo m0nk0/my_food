@@ -11,6 +11,7 @@ import 'onboarding_screen.dart';
 import 'analytics_screen.dart';
 import 'recipes_screen.dart';
 import 'menu_screen.dart'; // <--- ДОБАВЛЕН ИМПОРТ
+import 'fridge_screen.dart'; // <--- ДОБАВЛЕН ИМПОРТ
 
 class DiaryScreen extends StatefulWidget {
   const DiaryScreen({super.key});
@@ -199,42 +200,67 @@ class _DiaryScreenState extends State<DiaryScreen> {
                       SliverToBoxAdapter(
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
-                          child: Row(
+                          child: Column(
                             children: [
-                              Expanded(
-                                child: _buildFeatureButton(
-                                  title: 'Что поесть?',
-                                  subtitle: 'Рецепты по КБЖУ',
-                                  icon: Icons.restaurant_menu,
-                                  color: Colors.orange,
-                                  onTap: () {
-                                    final hour = DateTime.now().hour;
-                                    String mealType = 'перекус';
-                                    if (hour >= 6 && hour < 12) mealType = 'завтрак';
-                                    else if (hour >= 12 && hour < 17) mealType = 'обед';
-                                    else if (hour >= 17 && hour < 22) mealType = 'ужин';
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildFeatureButton(
+                                      title: 'Что поесть?',
+                                      subtitle: 'Рецепты по КБЖУ',
+                                      icon: Icons.restaurant_menu,
+                                      color: Colors.orange,
+                                      onTap: () {
+                                        final hour = DateTime.now().hour;
+                                        String mealType = 'перекус';
+                                        if (hour >= 6 && hour < 12) mealType = 'завтрак';
+                                        else if (hour >= 12 && hour < 17) mealType = 'обед';
+                                        else if (hour >= 17 && hour < 22) mealType = 'ужин';
 
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(builder: (context) => RecipesScreen(mealType: mealType)),
-                                    );
-                                  },
-                                ),
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(builder: (context) => RecipesScreen(mealType: mealType)),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: _buildFeatureButton(
+                                      title: 'Меню кафе',
+                                      subtitle: 'Перевод и КБЖУ',
+                                      icon: Icons.restaurant,
+                                      color: Colors.purple,
+                                      onTap: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(builder: (context) => const MenuScreen()),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: _buildFeatureButton(
-                                  title: 'Меню кафе', // <--- ИЗМЕНЕНО
-                                  subtitle: 'Перевод и КБЖУ',
-                                  icon: Icons.restaurant,
-                                  color: Colors.purple,
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(builder: (context) => const MenuScreen()),
-                                    );
-                                  },
-                                ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildFeatureButton(
+                                      title: 'Холодильник',
+                                      subtitle: 'Из продуктов',
+                                      icon: Icons.kitchen,
+                                      color: Colors.blue,
+                                      onTap: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(builder: (context) => const FridgeScreen()),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  const Expanded(child: SizedBox()), // Пустое место для симметрии
+                                ],
                               ),
                             ],
                           ),

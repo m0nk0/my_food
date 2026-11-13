@@ -6,6 +6,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'data/database.dart';
 import 'providers/diary_provider.dart';
 import 'providers/food_analysis_provider.dart' as food_provider; 
+import 'providers/fridge_provider.dart'; // <--- ДОБАВЛЕН ИМПОРТ
 import 'screens/onboarding_screen.dart';
 import 'screens/diary_screen.dart';
 
@@ -15,7 +16,7 @@ void main() async {
   final prefs = await SharedPreferences.getInstance();
   
   // ПРОВЕРЯЕМ: есть ли сохраненный вес? 
-  // Если вес есть, значит пользователь уже проходил анкету (или вводил данные).
+  // Если вес есть, значит пользователь уже проходил анкету.
   final hasProfile = prefs.containsKey('userWeight');
 
   runApp(MyApp(hasProfile: hasProfile));
@@ -34,6 +35,7 @@ class MyApp extends StatelessWidget {
         Provider<AppDatabase>.value(value: database),
         ChangeNotifierProvider(create: (context) => DiaryProvider(database)),
         ChangeNotifierProvider(create: (context) => food_provider.FoodAnalysisProvider()),
+        ChangeNotifierProvider(create: (context) => FridgeProvider()), // <--- ДОБАВЛЕН ПРОВАЙДЕР
       ],
       child: MaterialApp(
         title: 'Моя Еда',
