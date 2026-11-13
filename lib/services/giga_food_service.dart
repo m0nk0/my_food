@@ -145,7 +145,6 @@ $healthContext
         try {
           return jsonDecode(cleanContent);
         } catch (e) {
-          // Если модель снова ответила текстом, возвращаем заглушку с низкой уверенностью
           return {
             'dish_name': 'Неизвестное блюдо',
             'weight_g': 100,
@@ -157,13 +156,79 @@ $healthContext
             'benefits': 'Нет данных',
             'warnings': 'Нет данных',
             'warning': '',
-            'confidence': 0, // Низкая уверенность
+            'confidence': 0,
           };
         }
       }
       throw Exception('API error: ${response.statusCode} - $responseBody');
     } catch (e) {
       throw Exception('Ошибка при анализе фото: $e');
+    }
+  }
+
+  Future<String> generateRecipesByTime({
+    required double remainingCalories,
+    required String mealType,
+    required String allergies,
+    required String goal,
+  }) async {
+    try {
+      final token = await _getAccessToken();
+
+      String healthContext = '';
+      if (allergies.isNotEmpty) {
+        healthContext = 'ВАЖНО: У пользователя аллергия на: $allergies. Исключи эти продукты. ';
+      }
+
+      final requestBody = {
+        'model': 'GigaChat-2-Pro',
+        'messages': [
+          {
+            'role': 'system',
+            'content': '''
+Ты — практичный шеф-повар. Пользователь хочет поесть ($mealType). 
+У него осталось $remainingCalories ккал на этот прием пищи.
+Цель: $goal.
+$healthContext
+
+ВАЖНЫЕ ПРАВИЛА:
+1. Предлагай ТОЛЬКО простые рецепты из доступных продуктов (яйца, курица, макароны, картофель, овощи, крупы, хлеб, сыр). НИКАКОЙ утиной грудки, трюфелей или экзотики.
+2. Время готовки — не более 15 минут.
+3. Все ингредиенты должны быть из обычного супермаркета.
+4. Не пиши вступления типа "Вот ваши рецепты". Сразу переходи к делу.
+
+Придумай 3 рецепта. 
+Для каждого напиши:
+1. Название (жирным).
+2. Ингредиенты (с граммовками).
+3. Пошаговый рецепт (3-4 шага).
+4. Примерное КБЖУ на порцию.
+
+Ответ верни в виде красивого текста (Markdown).
+'''
+          },
+          {
+            'role': 'user',
+            'content': 'Дай мне 3 простых рецепта.'
+          }
+        ]
+      };
+
+      final request = await _httpClient.postUrl(Uri.parse(_apiUrl));
+      request.headers.set('Authorization', 'Bearer $token');
+      request.headers.set('Content-Type', 'application/json');
+      request.add(utf8.encode(jsonEncode(requestBody)));
+
+      final response = await request.close();
+      final responseBody = await response.transform(utf8.decoder).join();
+      
+      if (response.statusCode == 200) {
+        final content = jsonDecode(responseBody)['choices'][0]['message']['content'] as String;
+        return content.trim();
+      }
+      throw Exception('API error: ${response.statusCode} - $responseBody');
+    } catch (e) {
+      throw Exception('Ошибка при генерации рецептов: $e');
     }
   }
 }

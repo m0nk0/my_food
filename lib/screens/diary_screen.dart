@@ -8,7 +8,8 @@ import '../services/calculator_service.dart';
 import '../data/database.dart';
 import 'camera_screen.dart';
 import 'onboarding_screen.dart';
-import 'analytics_screen.dart'; // <--- ДОБАВЛЕН ИМПОРТ
+import 'analytics_screen.dart';
+import 'recipes_screen.dart'; // <--- ДОБАВЛЕН ИМПОРТ
 
 class DiaryScreen extends StatefulWidget {
   const DiaryScreen({super.key});
@@ -193,6 +194,53 @@ class _DiaryScreenState extends State<DiaryScreen> {
 
                       const SliverToBoxAdapter(child: SizedBox(height: 20)),
 
+                      // КНОПКИ РЕЦЕПТОВ
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: _buildFeatureButton(
+                                  title: 'Что поесть?',
+                                  subtitle: 'Рецепты по КБЖУ',
+                                  icon: Icons.restaurant_menu,
+                                  color: Colors.orange,
+                                  onTap: () {
+                                    final hour = DateTime.now().hour;
+                                    String mealType = 'перекус';
+                                    if (hour >= 6 && hour < 12) mealType = 'завтрак';
+                                    else if (hour >= 12 && hour < 17) mealType = 'обед';
+                                    else if (hour >= 17 && hour < 22) mealType = 'ужин';
+
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(builder: (context) => RecipesScreen(mealType: mealType)),
+                                    );
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _buildFeatureButton(
+                                  title: 'Холодильник',
+                                  subtitle: 'Из продуктов',
+                                  icon: Icons.kitchen,
+                                  color: Colors.blue,
+                                  onTap: () {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Скоро здесь будет умный холодильник!')),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      const SliverToBoxAdapter(child: SizedBox(height: 10)),
+
                       // БЛОК ВОДЫ
                       SliverToBoxAdapter(
                         child: Padding(
@@ -220,7 +268,6 @@ class _DiaryScreenState extends State<DiaryScreen> {
                                   ],
                                 ),
                                 const SizedBox(height: 16),
-                                // Капли
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                                   children: List.generate((_waterGoal / 250).ceil(), (index) {
@@ -247,7 +294,6 @@ class _DiaryScreenState extends State<DiaryScreen> {
                                   }),
                                 ),
                                 const SizedBox(height: 16),
-                                // Прокручиваемый список емкостей
                                 SizedBox(
                                   height: 75,
                                   child: ListView(
@@ -365,7 +411,35 @@ class _DiaryScreenState extends State<DiaryScreen> {
     );
   }
 
-  // Карточка выбора емкости воды
+  Widget _buildFeatureButton({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: color.withOpacity(0.2)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: color, size: 28),
+            const SizedBox(height: 8),
+            Text(title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color)),
+            Text(subtitle, style: TextStyle(fontSize: 12, color: color.withOpacity(0.8))),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildWaterOption(String label, double ml, IconData icon) {
     final diary = Provider.of<DiaryProvider>(context, listen: false);
     return Padding(
@@ -445,7 +519,6 @@ class _DiaryScreenState extends State<DiaryScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              // Кнопка Аналитики
               IconButton(
                 icon: const Icon(Icons.book, color: Colors.green, size: 32),
                 onPressed: () {
