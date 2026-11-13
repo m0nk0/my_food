@@ -4,6 +4,7 @@ import 'package:flutter_exif_rotation/flutter_exif_rotation.dart';
 import 'package:provider/provider.dart';
 import '../providers/food_analysis_provider.dart';
 import '../providers/diary_provider.dart';
+import '../widgets/scanning_overlay.dart'; // <--- ИМПОРТ НОВОГО ВИДЖЕТА
 
 class CameraScreen extends StatefulWidget {
   const CameraScreen({super.key});
@@ -18,7 +19,14 @@ class _CameraScreenState extends State<CameraScreen> {
     final provider = Provider.of<FoodAnalysisProvider>(context);
     final diaryProvider = Provider.of<DiaryProvider>(context, listen: false);
 
-    // Экран результата (когда анализ завершен)
+    // 1. ЭКРАН СКАНИРОВАНИЯ (Пока идет загрузка)
+    if (provider.isLoading && provider.pickedFile != null) {
+      return Scaffold(
+        body: ScanningOverlay(imagePath: provider.pickedFile!.path),
+      );
+    }
+
+    // 2. ЭКРАН РЕЗУЛЬТАТА (Когда анализ завершен)
     if (provider.apiResponse != null && !provider.isLoading) {
       final data = provider.apiResponse!;
       
@@ -48,7 +56,6 @@ class _CameraScreenState extends State<CameraScreen> {
                     height: 250,
                     width: double.infinity,
                     child: FutureBuilder<File>(
-                      // ИСПРАВЛЕНО: file: -> path:
                       future: FlutterExifRotation.rotateImage(path: provider.pickedFile!.path),
                       builder: (context, snapshot) {
                         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -206,62 +213,53 @@ class _CameraScreenState extends State<CameraScreen> {
       );
     }
 
-    // Экран выбора фото (камера или галерея)
+    // 3. ЭКРАН ВЫБОРА ФОТО (камера или галерея)
     return Scaffold(
       appBar: AppBar(title: const Text('Камера')),
       body: SingleChildScrollView(
         child: SizedBox(
-          height: MediaQuery.of(context).size.height - 100, 
+          height: MediaQuery.of(context).size.height - 100,
           child: Center(
-            child: provider.isLoading
-                ? Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const CircularProgressIndicator(),
-                      const SizedBox(height: 16),
-                      Text('Анализируем фото...', style: Theme.of(context).textTheme.titleMedium),
-                    ],
-                  )
-                : Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (provider.errorMessage != null)
-                        Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Text(
-                            provider.errorMessage!,
-                            style: const TextStyle(color: Colors.red),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      
-                      Icon(Icons.camera_alt, size: 80, color: Colors.green.shade200),
-                      const SizedBox(height: 20),
-                      
-                      ElevatedButton.icon(
-                        onPressed: () => provider.pickAndAnalyzeImageFromCamera(),
-                        icon: const Icon(Icons.camera),
-                        label: const Text('Сделать фото', style: TextStyle(fontSize: 16)),
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                          backgroundColor: Colors.green,
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      
-                      OutlinedButton.icon(
-                        onPressed: () => provider.pickAndAnalyzeImageFromGallery(),
-                        icon: const Icon(Icons.photo_library),
-                        label: const Text('Выбрать из галереи', style: TextStyle(fontSize: 16)),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        ),
-                      ),
-                    ],
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (provider.errorMessage != null)
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Text(
+                      provider.errorMessage!,
+                      style: const TextStyle(color: Colors.red),
+                      textAlign: TextAlign.center,
+                    ),
                   ),
+                
+                Icon(Icons.camera_alt, size: 80, color: Colors.green.shade200),
+                const SizedBox(height: 20),
+                
+                ElevatedButton.icon(
+                  onPressed: () => provider.pickAndAnalyzeImageFromCamera(),
+                  icon: const Icon(Icons.camera),
+                  label: const Text('Сделать фото', style: TextStyle(fontSize: 16)),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                
+                OutlinedButton.icon(
+                  onPressed: () => provider.pickAndAnalyzeImageFromGallery(),
+                  icon: const Icon(Icons.photo_library),
+                  label: const Text('Выбрать из галереи', style: TextStyle(fontSize: 16)),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
