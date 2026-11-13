@@ -4,7 +4,7 @@ import 'package:flutter_exif_rotation/flutter_exif_rotation.dart';
 import 'package:provider/provider.dart';
 import '../providers/food_analysis_provider.dart';
 import '../providers/diary_provider.dart';
-import '../widgets/scanning_overlay.dart'; // <--- ИМПОРТ НОВОГО ВИДЖЕТА
+import '../widgets/scanning_overlay.dart';
 
 class CameraScreen extends StatefulWidget {
   const CameraScreen({super.key});
@@ -19,14 +19,14 @@ class _CameraScreenState extends State<CameraScreen> {
     final provider = Provider.of<FoodAnalysisProvider>(context);
     final diaryProvider = Provider.of<DiaryProvider>(context, listen: false);
 
-    // 1. ЭКРАН СКАНИРОВАНИЯ (Пока идет загрузка)
+    // 1. ЭКРАН СКАНИРОВАНИЯ
     if (provider.isLoading && provider.pickedFile != null) {
       return Scaffold(
         body: ScanningOverlay(imagePath: provider.pickedFile!.path),
       );
     }
 
-    // 2. ЭКРАН РЕЗУЛЬТАТА (Когда анализ завершен)
+    // 2. ЭКРАН РЕЗУЛЬТАТА
     if (provider.apiResponse != null && !provider.isLoading) {
       final data = provider.apiResponse!;
       
@@ -44,7 +44,13 @@ class _CameraScreenState extends State<CameraScreen> {
       final confidence = (data['confidence'] ?? 100).toDouble();
 
       return Scaffold(
-        appBar: AppBar(title: const Text('Анализ блюда')),
+        appBar: AppBar(
+          title: const Text('Анализ блюда'),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => provider.reset(), // <--- КНОПКА НАЗАД
+          ),
+        ),
         body: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -99,8 +105,7 @@ class _CameraScreenState extends State<CameraScreen> {
                       
                       const Divider(height: 32),
 
-                      // ОРАНЖЕВОЕ ПРЕДУПРЕЖДЕНИЕ (Низкая уверенность)
-                      if (confidence < 60) ...[
+                      if (confidence < 60 && provider.pickedFile != null) ...[
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
@@ -115,7 +120,7 @@ class _CameraScreenState extends State<CameraScreen> {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  'ИИ не уверен в этом блюде. Проверьте название и вес, при необходимости отредактируйте.',
+                                  'ИИ не уверен в этом блюде. Проверьте название и вес.',
                                   style: TextStyle(color: Colors.orange.shade800),
                                 ),
                               ),
@@ -125,7 +130,6 @@ class _CameraScreenState extends State<CameraScreen> {
                         const SizedBox(height: 16),
                       ],
 
-                      // КРАСНОЕ ПРЕДУПРЕЖДЕНИЕ (Аллергии)
                       if (criticalWarning.isNotEmpty) ...[
                         Container(
                           padding: const EdgeInsets.all(12),
@@ -205,7 +209,7 @@ class _CameraScreenState extends State<CameraScreen> {
               const SizedBox(height: 16),
               TextButton(
                 onPressed: () => provider.reset(),
-                child: const Text('Выбрать другое фото', style: TextStyle(fontSize: 16)),
+                child: const Text('Отменить и вернуться', style: TextStyle(fontSize: 16, color: Colors.grey)),
               ),
             ],
           ),
@@ -213,53 +217,78 @@ class _CameraScreenState extends State<CameraScreen> {
       );
     }
 
-    // 3. ЭКРАН ВЫБОРА ФОТО (камера или галерея)
+    // 3. ЭКРАН ВЫБОРА ФОТО
     return Scaffold(
-      appBar: AppBar(title: const Text('Камера')),
-      body: SingleChildScrollView(
-        child: SizedBox(
-          height: MediaQuery.of(context).size.height - 100,
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (provider.errorMessage != null)
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Text(
-                      provider.errorMessage!,
-                      style: const TextStyle(color: Colors.red),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                
-                Icon(Icons.camera_alt, size: 80, color: Colors.green.shade200),
-                const SizedBox(height: 20),
-                
-                ElevatedButton.icon(
-                  onPressed: () => provider.pickAndAnalyzeImageFromCamera(),
-                  icon: const Icon(Icons.camera),
-                  label: const Text('Сделать фото', style: TextStyle(fontSize: 16)),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    backgroundColor: Colors.green,
-                    foregroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF9FAFB),
+      appBar: AppBar(
+        title: const Text('Добавить еду', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (provider.errorMessage != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 20),
+                  child: Text(
+                    provider.errorMessage!,
+                    style: const TextStyle(color: Colors.red),
+                    textAlign: TextAlign.center,
                   ),
                 ),
-                const SizedBox(height: 12),
-                
-                OutlinedButton.icon(
-                  onPressed: () => provider.pickAndAnalyzeImageFromGallery(),
-                  icon: const Icon(Icons.photo_library),
-                  label: const Text('Выбрать из галереи', style: TextStyle(fontSize: 16)),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              
+              const Text(
+                'Сделать фото',
+                style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'ИИ определит блюдо и посчитает КБЖУ',
+                style: TextStyle(fontSize: 16, color: Colors.grey),
+              ),
+              
+              const SizedBox(height: 40),
+              
+              GestureDetector(
+                onTap: () => provider.pickAndAnalyzeImageFromCamera(),
+                child: Container(
+                  width: 120,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    color: Colors.green,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.green.withOpacity(0.4),
+                        blurRadius: 20,
+                        spreadRadius: 5,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.camera_alt,
+                    size: 60,
+                    color: Colors.white,
                   ),
                 ),
-              ],
-            ),
+              ),
+              
+              const SizedBox(height: 40),
+              
+              TextButton.icon(
+                onPressed: () => _showManualInputDialog(context, provider),
+                icon: const Icon(Icons.edit, color: Colors.grey, size: 24),
+                label: const Text(
+                  'Ввести вручную',
+                  style: TextStyle(fontSize: 18, color: Colors.grey, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -275,6 +304,76 @@ class _CameraScreenState extends State<CameraScreen> {
         ),
         Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
       ],
+    );
+  }
+
+  void _showManualInputDialog(BuildContext context, FoodAnalysisProvider provider) {
+    final nameController = TextEditingController();
+    final weightController = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+            left: 20, right: 20, top: 24,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Ручной ввод', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              const Text('Введите название блюда, и ИИ посчитает КБЖУ.', style: TextStyle(color: Colors.grey)),
+              const SizedBox(height: 20),
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Название блюда',
+                  hintText: 'Например: Борщ',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: weightController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Вес (г) - опционально',
+                  hintText: 'Оставьте пустым, если не знаете',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: FilledButton(
+                  onPressed: () {
+                    final name = nameController.text.trim();
+                    if (name.isEmpty) return;
+                    final weight = double.tryParse(weightController.text);
+                    
+                    Navigator.pop(context);
+                    provider.analyzeManualInput(name, weight);
+                  },
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  child: const Text('Узнать КБЖУ', style: TextStyle(fontSize: 16)),
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
+          ),
+        );
+      },
     );
   }
 

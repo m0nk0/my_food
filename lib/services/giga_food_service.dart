@@ -91,7 +91,7 @@ class GigaFoodService {
       }
 
       final requestBody = {
-        'model': 'GigaChat-2-Pro', 
+        'model': 'GigaChat-2-Max', // <--- ИЗМЕНЕНО НА MAX
         'messages': [
           {
             'role': 'system',
@@ -103,21 +103,21 @@ $healthContext
 Верни ответ СТРОГО в формате JSON без markdown-разметки и лишнего текста.
 Формат JSON:
 {
-  "dish_name": "Максимально точное название (например, 'Зеленое яблоко Гренни Смит', а не просто 'Яблоко')",
+  "dish_name": "Максимально точное название (например, 'Макароны с мясным фаршем', а не просто 'Еда')",
   "weight_g": 150,
   "calories": 100,
   "protein": 2.0,
   "fat": 0.5,
   "carbs": 25.0,
-  "description": "Краткая справка (2-3 предложения).",
-  "benefits": "Основная польза для организма (1 предложение).",
-  "warnings": "Аллергены или противопоказания (1 предложение). Если нет, напиши 'Противопоказаний нет'.",
-  "warning": "КРИТИЧЕСКОЕ ПРЕДУПРЕЖДЕНИЕ. Заполняй ТОЛЬКО если в блюде есть аллергены или оно опасно для заболеваний пользователя. Если всё безопасно, верни пустую строку.",
+  "description": "Краткая справка.",
+  "benefits": "Польза.",
+  "warnings": "Аллергены.",
+  "warning": "",
   "confidence": 90
 }
 
 ВАЖНО ПРО УВЕРЕННОСТЬ:
-- Ставь 90-100, если ты четко видишь продукт (даже если он лежит на столе без тарелки).
+- Ставь 90-100, если ты видишь смешанное блюдо (макароны с мясом, салат, суп). Даже если это не одно цельное яблоко, а сложный состав, ты должен его распознать и дать примерные КБЖУ.
 - Ставь 50-70, если продукт частично закрыт, но ты можешь предположить, что это.
 - Ставь меньше 30 ТОЛЬКО если фото размытое, темное или на нем вообще нет еды.
 '''
@@ -166,6 +166,71 @@ $healthContext
     }
   }
 
+  Future<Map<String, dynamic>> analyzeFoodByName(String dishName, {double? weight}) async {
+    try {
+      final token = await _getAccessToken();
+
+      final weightContext = weight != null 
+          ? 'Вес порции: $weight г.' 
+          : 'Вес порции неизвестен, определи средний вес порции для этого блюда.';
+
+      final requestBody = {
+        'model': 'GigaChat-2-Max', // <--- ИЗМЕНЕНО НА MAX
+        'messages': [
+          {
+            'role': 'system',
+            'content': '''
+Ты — умный нутрициолог. Пользователь ввел название блюда: "$dishName".
+$weightContext
+
+Верни ответ СТРОГО в формате JSON без markdown-разметки.
+Формат JSON:
+{
+  "dish_name": "$dishName",
+  "weight_g": 150,
+  "calories": 100,
+  "protein": 2.0,
+  "fat": 0.5,
+  "carbs": 25.0,
+  "description": "Краткая справка.",
+  "benefits": "Польза.",
+  "warnings": "Аллергены.",
+  "warning": "",
+  "confidence": 100
+}
+'''
+          },
+          {
+            'role': 'user',
+            'content': 'Дай данные по этому блюду.'
+          }
+        ]
+      };
+
+      final request = await _httpClient.postUrl(Uri.parse(_apiUrl));
+      request.headers.set('Authorization', 'Bearer $token');
+      request.headers.set('Content-Type', 'application/json');
+      request.add(utf8.encode(jsonEncode(requestBody)));
+
+      final response = await request.close();
+      final responseBody = await response.transform(utf8.decoder).join();
+      
+      if (response.statusCode == 200) {
+        final content = jsonDecode(responseBody)['choices'][0]['message']['content'] as String;
+        String cleanContent = content.replaceAll('```json', '').replaceAll('```', '').trim();
+        
+        final result = jsonDecode(cleanContent) as Map<String, dynamic>;
+        if (weight != null) {
+          result['weight_g'] = weight;
+        }
+        return result;
+      }
+      throw Exception('API error: ${response.statusCode} - $responseBody');
+    } catch (e) {
+      throw Exception('Ошибка при поиске блюда: $e');
+    }
+  }
+
   Future<String> generateRecipesByTime({
     required double remainingCalories,
     required String mealType,
@@ -181,7 +246,7 @@ $healthContext
       }
 
       final requestBody = {
-        'model': 'GigaChat-2-Pro',
+        'model': 'GigaChat-2-Max', // <--- ИЗМЕНЕНО НА MAX
         'messages': [
           {
             'role': 'system',
