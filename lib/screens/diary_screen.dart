@@ -9,7 +9,8 @@ import '../data/database.dart';
 import 'camera_screen.dart';
 import 'onboarding_screen.dart';
 import 'analytics_screen.dart';
-import 'recipes_screen.dart'; // <--- ДОБАВЛЕН ИМПОРТ
+import 'recipes_screen.dart';
+import 'menu_screen.dart'; // <--- ДОБАВЛЕН ИМПОРТ
 
 class DiaryScreen extends StatefulWidget {
   const DiaryScreen({super.key});
@@ -194,7 +195,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
 
                       const SliverToBoxAdapter(child: SizedBox(height: 20)),
 
-                      // КНОПКИ РЕЦЕПТОВ
+                      // КНОПКИ ФИЧ
                       SliverToBoxAdapter(
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
@@ -223,13 +224,14 @@ class _DiaryScreenState extends State<DiaryScreen> {
                               const SizedBox(width: 12),
                               Expanded(
                                 child: _buildFeatureButton(
-                                  title: 'Холодильник',
-                                  subtitle: 'Из продуктов',
-                                  icon: Icons.kitchen,
-                                  color: Colors.blue,
+                                  title: 'Меню кафе', // <--- ИЗМЕНЕНО
+                                  subtitle: 'Перевод и КБЖУ',
+                                  icon: Icons.restaurant,
+                                  color: Colors.purple,
                                   onTap: () {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Скоро здесь будет умный холодильник!')),
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(builder: (context) => const MenuScreen()),
                                     );
                                   },
                                 ),

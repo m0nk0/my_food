@@ -91,7 +91,7 @@ class GigaFoodService {
       }
 
       final requestBody = {
-        'model': 'GigaChat-2-Max', // <--- ИЗМЕНЕНО НА MAX
+        'model': 'GigaChat-2-Max',
         'messages': [
           {
             'role': 'system',
@@ -175,7 +175,7 @@ $healthContext
           : 'Вес порции неизвестен, определи средний вес порции для этого блюда.';
 
       final requestBody = {
-        'model': 'GigaChat-2-Max', // <--- ИЗМЕНЕНО НА MAX
+        'model': 'GigaChat-2-Max',
         'messages': [
           {
             'role': 'system',
@@ -246,7 +246,7 @@ $weightContext
       }
 
       final requestBody = {
-        'model': 'GigaChat-2-Max', // <--- ИЗМЕНЕНО НА MAX
+        'model': 'GigaChat-2-Max',
         'messages': [
           {
             'role': 'system',
@@ -294,6 +294,84 @@ $healthContext
       throw Exception('API error: ${response.statusCode} - $responseBody');
     } catch (e) {
       throw Exception('Ошибка при генерации рецептов: $e');
+    }
+  }
+
+  // НОВЫЙ МЕТОД: Анализ меню
+  Future<List<Map<String, dynamic>>> analyzeMenu(File imageFile) async {
+    try {
+      final token = await _getAccessToken();
+      final fileId = await _uploadImage(imageFile, token);
+
+      final prefs = await SharedPreferences.getInstance();
+      final allergies = prefs.getString('userAllergies') ?? '';
+
+      String healthContext = '';
+      if (allergies.isNotEmpty) {
+        healthContext = 'ВАЖНО: У пользователя аллергия на: $allergies. Отметь блюда с этими ингредиентами в поле "warning". ';
+      }
+
+      final requestBody = {
+        'model': 'GigaChat-2-Max',
+        'messages': [
+          {
+            'role': 'system',
+            'content': '''
+Ты — эксперт по меню в ресторанах и кафе. Проанализируй фото меню (возможно, на иностранном языке).
+$healthContext
+
+Верни ответ СТРОГО в формате JSON-массива без markdown-разметки.
+Каждый элемент массива должен быть объектом с полями:
+[
+  {
+    "dish_name_ru": "Название блюда на русском",
+    "dish_name_original": "Оригинальное название",
+    "price": "Цена (если видна, иначе 'Не указана')",
+    "calories": 350,
+    "protein": 15.0,
+    "fat": 10.0,
+    "carbs": 45.0,
+    "description": "Краткое описание блюда.",
+    "warning": "Если есть аллергены, напиши предупреждение. Иначе пустую строку."
+  }
+]
+
+ПРАВИЛА:
+1. Если блюд на фото много, выбери 5-7 самых популярных или интересных.
+2. Если меню на иностранном языке, переведи названия на русский.
+3. Оценивай КБЖУ примерно, на основе типичных рецептов.
+'''
+          },
+          {
+            'role': 'user',
+            'content': 'Проанализируй это меню.',
+            'attachments': [fileId]
+          }
+        ]
+      };
+
+      final request = await _httpClient.postUrl(Uri.parse(_apiUrl));
+      request.headers.set('Authorization', 'Bearer $token');
+      request.headers.set('Content-Type', 'application/json');
+      request.add(utf8.encode(jsonEncode(requestBody)));
+
+      final response = await request.close();
+      final responseBody = await response.transform(utf8.decoder).join();
+      
+      if (response.statusCode == 200) {
+        final content = jsonDecode(responseBody)['choices'][0]['message']['content'] as String;
+        String cleanContent = content.replaceAll('```json', '').replaceAll('```', '').trim();
+        
+        try {
+          final List<dynamic> parsed = jsonDecode(cleanContent);
+          return parsed.map((e) => e as Map<String, dynamic>).toList();
+        } catch (e) {
+          return [];
+        }
+      }
+      throw Exception('API error: ${response.statusCode} - $responseBody');
+    } catch (e) {
+      throw Exception('Ошибка при чтении меню: $e');
     }
   }
 }
