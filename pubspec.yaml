@@ -21,6 +21,7 @@ dependencies:
   path: ^1.9.1
   flutter_image_compress: ^2.3.0
   shared_preferences: ^2.3.0
+  flutter_exif_rotation: ^0.5.2
 
 dev_dependencies:
   flutter_test:

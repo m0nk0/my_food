@@ -7,20 +7,23 @@ import 'data/database.dart';
 import 'providers/diary_provider.dart';
 import 'providers/food_analysis_provider.dart' as food_provider; 
 import 'screens/onboarding_screen.dart';
-import 'screens/diary_screen.dart'; // <--- ВОТ ЭТОТ ИМПОРТ БЫЛ ПОТЕРЯН
+import 'screens/diary_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   final prefs = await SharedPreferences.getInstance();
-  final isFirstRun = prefs.getBool('isFirstRun') ?? true;
+  
+  // ПРОВЕРЯЕМ: есть ли сохраненный вес? 
+  // Если вес есть, значит пользователь уже проходил анкету (или вводил данные).
+  final hasProfile = prefs.containsKey('userWeight');
 
-  runApp(MyApp(isFirstRun: isFirstRun));
+  runApp(MyApp(hasProfile: hasProfile));
 }
 
 class MyApp extends StatelessWidget {
-  final bool isFirstRun;
-  const MyApp({super.key, required this.isFirstRun});
+  final bool hasProfile;
+  const MyApp({super.key, required this.hasProfile});
 
   @override
   Widget build(BuildContext context) {
@@ -50,7 +53,9 @@ class MyApp extends StatelessWidget {
           Locale('en', 'US'),
         ],
         locale: const Locale('ru', 'RU'),
-        home: isFirstRun ? const OnboardingScreen() : DiaryScreen(),
+        
+        // Если данные есть — сразу Дневник, иначе — Анкета
+        home: hasProfile ? const DiaryScreen() : const OnboardingScreen(),
       ),
     );
   }

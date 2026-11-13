@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_exif_rotation/flutter_exif_rotation.dart';
 import 'package:provider/provider.dart';
 import '../providers/food_analysis_provider.dart';
 import '../providers/diary_provider.dart';
@@ -31,9 +32,8 @@ class _CameraScreenState extends State<CameraScreen> {
       final description = data['description'] ?? 'Нет описания';
       final benefits = data['benefits'] ?? 'Нет данных';
       final warnings = data['warnings'] ?? 'Нет данных';
-      
-      // КРИТИЧЕСКОЕ ПРЕДУПРЕЖДЕНИЕ (из-за аллергий или болезней)
       final criticalWarning = data['warning'] ?? '';
+      final confidence = (data['confidence'] ?? 100).toDouble();
 
       return Scaffold(
         appBar: AppBar(title: const Text('Анализ блюда')),
@@ -44,7 +44,23 @@ class _CameraScreenState extends State<CameraScreen> {
               if (provider.pickedFile != null)
                 ClipRRect(
                   borderRadius: BorderRadius.circular(20),
-                  child: Image.file(provider.pickedFile!, height: 250, width: double.infinity, fit: BoxFit.cover),
+                  child: SizedBox(
+                    height: 250,
+                    width: double.infinity,
+                    child: FutureBuilder<File>(
+                      // ИСПРАВЛЕНО: file: -> path:
+                      future: FlutterExifRotation.rotateImage(path: provider.pickedFile!.path),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return const Center(child: CircularProgressIndicator());
+                        }
+                        if (snapshot.hasError || !snapshot.hasData) {
+                          return Image.file(provider.pickedFile!, fit: BoxFit.cover);
+                        }
+                        return Image.file(snapshot.data!, fit: BoxFit.cover);
+                      },
+                    ),
+                  ),
                 ),
               const SizedBox(height: 24),
               Card(
@@ -64,7 +80,6 @@ class _CameraScreenState extends State<CameraScreen> {
                       
                       const Divider(height: 32),
                       
-                      // КБЖУ блок
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -77,7 +92,33 @@ class _CameraScreenState extends State<CameraScreen> {
                       
                       const Divider(height: 32),
 
-                      // КРАСНОЕ ПРЕДУПРЕЖДЕНИЕ (Аллергии/Болезни)
+                      // ОРАНЖЕВОЕ ПРЕДУПРЕЖДЕНИЕ (Низкая уверенность)
+                      if (confidence < 60) ...[
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.orange.shade200),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(Icons.help_outline, color: Colors.orange),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'ИИ не уверен в этом блюде. Проверьте название и вес, при необходимости отредактируйте.',
+                                  style: TextStyle(color: Colors.orange.shade800),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+
+                      // КРАСНОЕ ПРЕДУПРЕЖДЕНИЕ (Аллергии)
                       if (criticalWarning.isNotEmpty) ...[
                         Container(
                           padding: const EdgeInsets.all(12),
@@ -103,7 +144,6 @@ class _CameraScreenState extends State<CameraScreen> {
                         const SizedBox(height: 16),
                       ],
 
-                      // Кнопка "Узнать больше"
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton.icon(
@@ -122,7 +162,6 @@ class _CameraScreenState extends State<CameraScreen> {
 
                       const SizedBox(height: 16),
                       
-                      // Кнопка сохранения
                       SizedBox(
                         width: double.infinity,
                         child: FilledButton.icon(
@@ -170,58 +209,61 @@ class _CameraScreenState extends State<CameraScreen> {
     // Экран выбора фото (камера или галерея)
     return Scaffold(
       appBar: AppBar(title: const Text('Камера')),
-      body: Center(
-        child: provider.isLoading
-            ? Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const CircularProgressIndicator(),
-                  const SizedBox(height: 16),
-                  Text('Анализируем фото...', style: Theme.of(context).textTheme.titleMedium),
-                ],
-              )
-            : Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (provider.errorMessage != null)
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Text(
-                        provider.errorMessage!,
-                        style: const TextStyle(color: Colors.red),
-                        textAlign: TextAlign.center,
+      body: SingleChildScrollView(
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height - 100, 
+          child: Center(
+            child: provider.isLoading
+                ? Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const CircularProgressIndicator(),
+                      const SizedBox(height: 16),
+                      Text('Анализируем фото...', style: Theme.of(context).textTheme.titleMedium),
+                    ],
+                  )
+                : Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (provider.errorMessage != null)
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Text(
+                            provider.errorMessage!,
+                            style: const TextStyle(color: Colors.red),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      
+                      Icon(Icons.camera_alt, size: 80, color: Colors.green.shade200),
+                      const SizedBox(height: 20),
+                      
+                      ElevatedButton.icon(
+                        onPressed: () => provider.pickAndAnalyzeImageFromCamera(),
+                        icon: const Icon(Icons.camera),
+                        label: const Text('Сделать фото', style: TextStyle(fontSize: 16)),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                        ),
                       ),
-                    ),
-                  
-                  Icon(Icons.camera_alt, size: 80, color: Colors.green.shade200),
-                  const SizedBox(height: 20),
-                  
-                  // Кнопка "Сделать фото"
-                  ElevatedButton.icon(
-                    onPressed: () => provider.pickAndAnalyzeImageFromCamera(),
-                    icon: const Icon(Icons.camera),
-                    label: const Text('Сделать фото', style: TextStyle(fontSize: 16)),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                    ),
+                      const SizedBox(height: 12),
+                      
+                      OutlinedButton.icon(
+                        onPressed: () => provider.pickAndAnalyzeImageFromGallery(),
+                        icon: const Icon(Icons.photo_library),
+                        label: const Text('Выбрать из галереи', style: TextStyle(fontSize: 16)),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 12),
-                  
-                  // Кнопка "Из галереи"
-                  OutlinedButton.icon(
-                    onPressed: () => provider.pickAndAnalyzeImageFromGallery(),
-                    icon: const Icon(Icons.photo_library),
-                    label: const Text('Выбрать из галереи', style: TextStyle(fontSize: 16)),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    ),
-                  ),
-                ],
-              ),
+          ),
+        ),
       ),
     );
   }
