@@ -32,23 +32,26 @@ class _CameraScreenState extends State<CameraScreen> {
       
       final dishName = data['dish_name'] ?? data['блюдо'] ?? 'Без названия';
       final weight = (data['weight_g'] ?? data['вес'] ?? 100).toDouble();
-      final calories = (data['calories'] ?? 0).toDouble();
-      final protein = (data['protein'] ?? 0).toDouble();
-      final fat = (data['fat'] ?? 0).toDouble();
-      final carbs = (data['carbs'] ?? 0).toDouble();
       
-      final description = data['description'] ?? 'Нет описания';
-      final benefits = data['benefits'] ?? 'Нет данных';
-      final warnings = data['warnings'] ?? 'Нет данных';
-      final criticalWarning = data['warning'] ?? '';
-      final confidence = (data['confidence'] ?? 100).toDouble();
+      // КБЖУ на 100г
+      final cal100 = (data['calories_per_100g'] ?? data['calories'] ?? 0).toDouble();
+      final prot100 = (data['protein_per_100g'] ?? data['protein'] ?? 0).toDouble();
+      final fat100 = (data['fat_per_100g'] ?? data['fat'] ?? 0).toDouble();
+      final carb100 = (data['carbs_per_100g'] ?? data['carbs'] ?? 0).toDouble();
+
+      // Пересчитываем на текущий вес
+      final ratio = weight / 100.0;
+      final calories = cal100 * ratio;
+      final protein = prot100 * ratio;
+      final fat = fat100 * ratio;
+      final carbs = carb100 * ratio;
 
       return Scaffold(
         appBar: AppBar(
           title: const Text('Анализ блюда'),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
-            onPressed: () => provider.reset(), // <--- КНОПКА НАЗАД
+            onPressed: () => provider.reset(),
           ),
         ),
         body: SingleChildScrollView(
@@ -89,10 +92,46 @@ class _CameraScreenState extends State<CameraScreen> {
                         style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, fontSize: 24),
                       ),
                       const SizedBox(height: 8),
-                      Text('Вес: ${weight.toStringAsFixed(0)} г', style: const TextStyle(fontSize: 16, color: Colors.grey)),
                       
+                      // КЛИКАБЕЛЬНЫЙ ВЕС
+                      GestureDetector(
+                        onTap: () {
+                          _showWeightEditDialog(context, weight, cal100, prot100, fat100, carb100);
+                        },
+                        child: Row(
+                          children: [
+                            Text(
+                              'Вес: ${weight.toStringAsFixed(0)} г',
+                              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87),
+                            ),
+                            const SizedBox(width: 8),
+                            const Icon(Icons.edit, size: 24, color: Colors.green),
+                          ],
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 4),
+                      
+                      // СТРОКА ПРО 100 ГРАММ (Крупнее и с выделением)
+                      RichText(
+                        text: TextSpan(
+                          style: const TextStyle(fontSize: 15, color: Colors.black54),
+                          children: [
+                            const TextSpan(
+                              text: 'На 100 г: ',
+                              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
+                            ),
+                            TextSpan(
+                              text: '${cal100.toStringAsFixed(0)} ккал | Б:${prot100.toStringAsFixed(1)} Ж:${fat100.toStringAsFixed(1)} У:${carb100.toStringAsFixed(1)}',
+                              style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.black87),
+                            ),
+                          ],
+                        ),
+                      ),
+
                       const Divider(height: 32),
                       
+                      // ИТОГОВЫЕ КБЖУ
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -105,32 +144,7 @@ class _CameraScreenState extends State<CameraScreen> {
                       
                       const Divider(height: 32),
 
-                      if (confidence < 60 && provider.pickedFile != null) ...[
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.shade50,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.orange.shade200),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Icon(Icons.help_outline, color: Colors.orange),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'ИИ не уверен в этом блюде. Проверьте название и вес.',
-                                  style: TextStyle(color: Colors.orange.shade800),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-
-                      if (criticalWarning.isNotEmpty) ...[
+                      if (data['warning'] != null && data['warning'].toString().isNotEmpty) ...[
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
@@ -145,7 +159,7 @@ class _CameraScreenState extends State<CameraScreen> {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  criticalWarning,
+                                  data['warning'],
                                   style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
                                 ),
                               ),
@@ -159,7 +173,7 @@ class _CameraScreenState extends State<CameraScreen> {
                         width: double.infinity,
                         child: OutlinedButton.icon(
                           onPressed: () {
-                            _showInfoBottomSheet(context, dishName, description, benefits, warnings);
+                            _showInfoBottomSheet(context, dishName, data['description'] ?? '', data['benefits'] ?? '', data['warnings'] ?? '');
                           },
                           icon: const Icon(Icons.menu_book, color: Colors.green),
                           label: const Text('Узнать больше о продукте', style: TextStyle(color: Colors.green, fontSize: 16)),
@@ -304,6 +318,50 @@ class _CameraScreenState extends State<CameraScreen> {
         ),
         Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
       ],
+    );
+  }
+
+  void _showWeightEditDialog(BuildContext context, double currentWeight, double cal100, double prot100, double fat100, double carb100) {
+    final weightController = TextEditingController(text: currentWeight.toStringAsFixed(0));
+    final provider = Provider.of<FoodAnalysisProvider>(context, listen: false);
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Изменить вес', style: TextStyle(fontWeight: FontWeight.bold)),
+          content: TextField(
+            controller: weightController,
+            keyboardType: TextInputType.number,
+            autofocus: true,
+            decoration: const InputDecoration(labelText: 'Вес (г)'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Отмена', style: TextStyle(color: Colors.grey)),
+            ),
+            FilledButton(
+              onPressed: () {
+                final newWeight = double.tryParse(weightController.text) ?? currentWeight;
+                
+                final newData = Map<String, dynamic>.from(provider.apiResponse!);
+                newData['weight_g'] = newWeight;
+                newData['calories_per_100g'] = cal100;
+                newData['protein_per_100g'] = prot100;
+                newData['fat_per_100g'] = fat100;
+                newData['carbs_per_100g'] = carb100;
+                
+                provider.updateResponse(newData);
+                Navigator.pop(context);
+              },
+              style: FilledButton.styleFrom(backgroundColor: Colors.green),
+              child: const Text('Сохранить'),
+            ),
+          ],
+        );
+      },
     );
   }
 

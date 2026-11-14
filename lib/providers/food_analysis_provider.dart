@@ -12,13 +12,11 @@ class FoodAnalysisProvider extends ChangeNotifier {
   bool isLoading = false;
   String? errorMessage;
 
-  // Выбор из галереи
   Future<void> pickAndAnalyzeImageFromGallery() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
     if (image != null) await _processImage(File(image.path));
   }
 
-  // Снимок с камеры
   Future<void> pickAndAnalyzeImageFromCamera() async {
     final XFile? image = await _picker.pickImage(
       source: ImageSource.camera,
@@ -28,7 +26,6 @@ class FoodAnalysisProvider extends ChangeNotifier {
     if (image != null) await _processImage(File(image.path));
   }
 
-  // Общая логика обработки фото
   Future<void> _processImage(File file) async {
     pickedFile = file;
     apiResponse = null;
@@ -47,9 +44,8 @@ class FoodAnalysisProvider extends ChangeNotifier {
     }
   }
 
-  // НОВЫЙ МЕТОД: Ручной ввод
   Future<void> analyzeManualInput(String dishName, double? weight) async {
-    pickedFile = null; // Фото нет
+    pickedFile = null;
     apiResponse = null;
     errorMessage = null;
     isLoading = true;
@@ -66,7 +62,12 @@ class FoodAnalysisProvider extends ChangeNotifier {
     }
   }
 
-  // Метод для сброса состояния (когда пользователь хочет выбрать другое фото)
+  // Обновляем данные (когда меняем вес)
+  void updateResponse(Map<String, dynamic> newData) {
+    apiResponse = newData;
+    notifyListeners();
+  }
+
   void reset() {
     pickedFile = null;
     apiResponse = null;

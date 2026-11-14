@@ -70,6 +70,7 @@ class GigaFoodService {
     throw Exception('Upload error: ${response.statusCode} - $responseBody');
   }
 
+  // АНАЛИЗ ФОТО (возвращает КБЖУ на 100г)
   Future<Map<String, dynamic>> analyzeFood(File imageFile) async {
     try {
       final token = await _getAccessToken();
@@ -103,12 +104,12 @@ $healthContext
 Верни ответ СТРОГО в формате JSON без markdown-разметки и лишнего текста.
 Формат JSON:
 {
-  "dish_name": "Максимально точное название (например, 'Макароны с мясным фаршем', а не просто 'Еда')",
-  "weight_g": 150,
-  "calories": 100,
-  "protein": 2.0,
-  "fat": 0.5,
-  "carbs": 25.0,
+  "dish_name": "Максимально точное название",
+  "weight_g": 150, 
+  "calories_per_100g": 100, 
+  "protein_per_100g": 2.0, 
+  "fat_per_100g": 0.5, 
+  "carbs_per_100g": 25.0, 
   "description": "Краткая справка.",
   "benefits": "Польза.",
   "warnings": "Аллергены.",
@@ -116,10 +117,10 @@ $healthContext
   "confidence": 90
 }
 
-ВАЖНО ПРО УВЕРЕННОСТЬ:
-- Ставь 90-100, если ты видишь смешанное блюдо (макароны с мясом, салат, суп). Даже если это не одно цельное яблоко, а сложный состав, ты должен его распознать и дать примерные КБЖУ.
-- Ставь 50-70, если продукт частично закрыт, но ты можешь предположить, что это.
-- Ставь меньше 30 ТОЛЬКО если фото размытое, темное или на нем вообще нет еды.
+ВАЖНО: 
+- КБЖУ (calories_per_100g и т.д.) считай строго на 100 грамм продукта.
+- weight_g — это твоя оценка того, сколько грамм на фото. 
+- Ставь confidence 90-100, если видишь смешанное блюдо.
 '''
           },
           {
@@ -148,10 +149,10 @@ $healthContext
           return {
             'dish_name': 'Неизвестное блюдо',
             'weight_g': 100,
-            'calories': 0,
-            'protein': 0.0,
-            'fat': 0.0,
-            'carbs': 0.0,
+            'calories_per_100g': 0,
+            'protein_per_100g': 0.0,
+            'fat_per_100g': 0.0,
+            'carbs_per_100g': 0.0,
             'description': cleanContent,
             'benefits': 'Нет данных',
             'warnings': 'Нет данных',
@@ -166,13 +167,14 @@ $healthContext
     }
   }
 
+  // АНАЛИЗ ПО НАЗВАНИЮ (тоже возвращает КБЖУ на 100г)
   Future<Map<String, dynamic>> analyzeFoodByName(String dishName, {double? weight}) async {
     try {
       final token = await _getAccessToken();
 
       final weightContext = weight != null 
           ? 'Вес порции: $weight г.' 
-          : 'Вес порции неизвестен, определи средний вес порции для этого блюда.';
+          : 'Вес порции неизвестен, определи средний вес порции.';
 
       final requestBody = {
         'model': 'GigaChat-2-Max',
@@ -188,16 +190,18 @@ $weightContext
 {
   "dish_name": "$dishName",
   "weight_g": 150,
-  "calories": 100,
-  "protein": 2.0,
-  "fat": 0.5,
-  "carbs": 25.0,
+  "calories_per_100g": 100,
+  "protein_per_100g": 2.0,
+  "fat_per_100g": 0.5,
+  "carbs_per_100g": 25.0,
   "description": "Краткая справка.",
   "benefits": "Польза.",
   "warnings": "Аллергены.",
   "warning": "",
   "confidence": 100
 }
+
+ВАЖНО: КБЖУ считай строго на 100 грамм продукта.
 '''
           },
           {
@@ -374,7 +378,6 @@ $healthContext
     }
   }
 
-  // Анализ продуктов в холодильнике
   Future<List<String>> analyzeFridge(File imageFile) async {
     try {
       final token = await _getAccessToken();
@@ -432,7 +435,6 @@ $healthContext
     }
   }
 
-  // Генерация рецептов из списка продуктов
   Future<String> generateRecipesFromProducts({
     required List<String> products,
     required double remainingCalories,
